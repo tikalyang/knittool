@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鉤針織圖參考生成器 - v3.0</title>
+    <title>鉤針織圖參考生成器 - v3.2</title>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background-color: #fdf2f2; color: #4a4a4a; padding: 20px; display: flex; flex-direction: column; align-items: center; line-height: 1.5; }
@@ -11,14 +11,17 @@
         h2 { color: #d63384; text-align: center; margin-bottom: 5px; }
         .author { text-align: center; font-size: 12px; color: #aaa; margin-bottom: 20px; }
         
+        /* 針法說明 */
         .legend-card { background: #fffafb; border: 2px solid #f8d7da; border-radius: 10px; padding: 15px; margin-bottom: 20px; }
         .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 14px; }
         .code-tag { background: #d63384; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-family: monospace; margin-right: 5px; }
 
+        /* AI 區塊 */
         .ai-guide { background-color: #f0f7ff; border: 1px solid #cce5ff; border-radius: 10px; padding: 15px; margin: 20px 0; }
         .prompt-box { background: white; border: 1px solid #b8daff; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 13px; margin: 10px 0; }
         .copy-btn { background: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
 
+        /* 輸入區 */
         .input-group { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid #eee; padding-top: 20px; }
         .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 5px; }
         .row label { flex: 1; min-width: 100px; font-weight: bold; font-size: 14px; }
@@ -27,24 +30,24 @@
         .checkbox-row { display: flex; align-items: center; gap: 10px; background: #fff3f5; padding: 12px; border-radius: 8px; border: 1px dashed #d63384; }
         .btn-generate { background-color: #d63384; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold; margin-top: 10px; }
         
+        /* 表格區 */
         #capture-area { background: white; padding: 10px; margin-top: 20px; border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; background: white; }
         th, td { border: 1px solid #f8d7da; padding: 10px; text-align: center; }
         th { background-color: #fff0f3; color: #d63384; }
         .highlight-row { background-color: #fff9c4; font-weight: bold; }
         
+        /* 按鈕區 */
         .action-btns { display: flex; gap: 10px; margin-top: 15px; width: 100%; }
-        .btn-action { flex: 1; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
+        .btn-action { flex: 1; padding: 12px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
         .btn-copy-img { background: #28a745; color: white; }
-        
-        .notice { background: #e8f4fd; padding: 15px; border-radius: 8px; margin-top: 15px; font-size: 14px; border-left: 5px solid #2196f3; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>🧶 鉤針織圖參考生成器</h2>
-    <p class="author">實測優化 v3.0 | AI 協作與圖片匯出</p>
+    <p class="author">實測優化 v3.2 | 減針邏輯精準修正</p>
 
     <div class="legend-card">
         <div class="legend-grid">
@@ -66,6 +69,13 @@
             </select>
         </div>
         <div class="row">
+            <label>部位形狀:</label>
+            <select id="shape">
+                <option value="normal">標準球體 / 長橢圓</option>
+                <option value="teardrop">水滴狀 (上尖下圓)</option>
+            </select>
+        </div>
+        <div class="row">
             <label>最大直徑 (cm):</label>
             <input type="number" id="diameter" value="5" step="0.1">
         </div>
@@ -78,14 +88,14 @@
             <label for="keepOpen" style="color:#d63384;"><b>需要縫合此部位</b> (自動加排/保留開口)</label>
         </div>
         <div id="stopGroup" class="row" style="display:none;">
-            <label>停止於幾針:</label>
+            <label>停止於幾針(預估縫合開口的針數,生成時會自動修正):</label>
             <input type="number" id="stopStitches" value="12">
         </div>
         <button class="btn-generate" onclick="generate()">生成優化織圖</button>
     </div>
 
     <div class="ai-guide">
-        <h3 style="margin-top:0; font-size:15px;">🤖 AI 諮詢小幫手(先讓AI分析設計草圖用)</h3>
+        <h3 style="margin-top:0; font-size:15px;">🤖 AI 諮詢小幫手(可先在你自己的AI上傳草圖並分析)</h3>
         <div class="prompt-box" id="pBox">請分析設計圖。告訴我每個部位是【球體/長橢圓/水滴狀】，並估計其【最大直徑(cm)】與【總長度(cm)】。</div>
         <button class="copy-btn" onclick="copyP()">一鍵複製 Prompt</button>
     </div>
@@ -107,17 +117,20 @@ function copyP() {
 
 function generate() {
     const base = parseInt(document.getElementById('mrBase').value);
+    const shape = document.getElementById('shape').value;
     const D = parseFloat(document.getElementById('diameter').value);
     const L = parseFloat(document.getElementById('length').value);
     const keepOpen = document.getElementById('keepOpen').checked;
     const stopSt = parseInt(document.getElementById('stopStitches').value);
     
+    if (isNaN(D) || D <= 0) return;
+
     const targetRounds = Math.round(D); 
     const maxSt = targetRounds * base;
     let html = `<table><tr><th>圈數</th><th>針法邏輯</th><th>總針數</th></tr>`;
     let curr = 1;
 
-    // 1. 加針
+    // 1. 加針區
     html += `<tr><td>1</td><td>MR (${base}X)</td><td>${base}</td></tr>`;
     for (let i = 2; i <= targetRounds; i++) {
         let logic = (i === 2) ? `${base}V` : `(${i-2}X, V) * ${base}`;
@@ -125,7 +138,7 @@ function generate() {
     }
 
     // 2. 固定層
-    let midRounds = L === D ? Math.round(targetRounds * 0.8) : Math.round((L - D) * 2.2);
+    let midRounds = (shape === 'normal') ? (L === D ? Math.round(targetRounds * 0.8) : Math.round((L - D) * 2.2)) : 1;
     midRounds = Math.max(1, midRounds);
     if (keepOpen) midRounds += 2;
 
@@ -133,19 +146,39 @@ function generate() {
         let isExtra = (keepOpen && i >= (midRounds - 2));
         html += `<tr class="${isExtra ? 'highlight-row' : ''}">
             <td>${++curr}</td>
-            <td>${maxSt}X ${isExtra ? '<br><small>(為符合視覺效果的縫合加強排，視實際狀況增減)</small>' : ''}</td>
+            <td>${maxSt}X ${isExtra ? '<br><small>(縫合加強排，視實際狀況增減)</small>' : ''}</td>
             <td>${maxSt}</td>
         </tr>`;
     }
 
-    // 3. 減針
-    for (let i = targetRounds; i >= 2; i--) {
-        let currentSt = i * base;
-        if (keepOpen && currentSt <= stopSt) break;
-        let nextSt = (i - 1) * base;
-        let logic = (i === 2) ? `${base}A` : `(${i-2}X, A) * ${base}`;
-        html += `<tr><td>${++curr}</td><td>${logic}</td><td>${nextSt}</td></tr>`;
-        if (keepOpen && nextSt <= stopSt) break;
+    // 3. 減針區 (修正預判邏輯)
+    if (shape === 'normal') {
+        for (let i = targetRounds; i >= 2; i--) {
+            let nextSt = (i - 1) * base;
+
+            // 如果下一圈會小於停止針數，就在這圈停止
+            if (keepOpen && nextSt < stopSt) break;
+
+            let logic = (i === 2) ? `${base}A` : `(${i-2}X, A) * ${base}`;
+            html += `<tr><td>${++curr}</td><td>${logic}</td><td>${nextSt}</td></tr>`;
+            
+            if (keepOpen && nextSt === stopSt) break;
+        }
+    } else {
+        let curS = maxSt;
+        while (curS > base) {
+            // 水滴狀預判
+            if (keepOpen && (curS - base) < stopSt) break;
+
+            if (curr % 2 === 0) {
+                let k = curS / base;
+                html += `<tr><td>${++curr}</td><td>(${k-2}X, A) * ${base}</td><td>${curS - base}</td></tr>`;
+                curS -= base;
+            } else {
+                html += `<tr><td>${++curr}</td><td>${curS}X</td><td>${curS}</td></tr>`;
+            }
+            if (keepOpen && curS === stopSt) break;
+        }
     }
 
     document.getElementById('result-table').innerHTML = html + `</table>`;
