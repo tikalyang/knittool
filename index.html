@@ -3,41 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>鉤針織圖參考生成器 - v3.2</title>
+    <title>鉤針織圖全能生成器 - v3.5</title>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <style>
         body { font-family: -apple-system, sans-serif; background-color: #fdf2f2; color: #4a4a4a; padding: 20px; display: flex; flex-direction: column; align-items: center; line-height: 1.5; }
-        .container { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 600px; width: 100%; }
+        .container { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 650px; width: 100%; }
         h2 { color: #d63384; text-align: center; margin-bottom: 5px; }
         .author { text-align: center; font-size: 12px; color: #aaa; margin-bottom: 20px; }
         
-        /* 針法說明 */
+        /* 針法卡片 */
         .legend-card { background: #fffafb; border: 2px solid #f8d7da; border-radius: 10px; padding: 15px; margin-bottom: 20px; }
         .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 14px; }
         .code-tag { background: #d63384; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-family: monospace; margin-right: 5px; }
 
-        /* AI 區塊 */
-        .ai-guide { background-color: #f0f7ff; border: 1px solid #cce5ff; border-radius: 10px; padding: 15px; margin: 20px 0; }
-        .prompt-box { background: white; border: 1px solid #b8daff; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 13px; margin: 10px 0; }
-        .copy-btn { background: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-
-        /* 輸入區 */
+        /* 輸入控制區 */
         .input-group { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid #eee; padding-top: 20px; }
         .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 5px; }
         .row label { flex: 1; min-width: 100px; font-weight: bold; font-size: 14px; }
         input, select { flex: 2; padding: 10px; border: 1px solid #ddd; border-radius: 8px; }
-        
         .checkbox-row { display: flex; align-items: center; gap: 10px; background: #fff3f5; padding: 12px; border-radius: 8px; border: 1px dashed #d63384; }
         .btn-generate { background-color: #d63384; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold; margin-top: 10px; }
         
-        /* 表格區 */
+        /* 表格樣式 */
         #capture-area { background: white; padding: 10px; margin-top: 20px; border-radius: 8px; }
-        table { width: 100%; border-collapse: collapse; background: white; }
-        th, td { border: 1px solid #f8d7da; padding: 10px; text-align: center; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #f8d7da; padding: 10px 5px; text-align: center; font-size: 14px; }
         th { background-color: #fff0f3; color: #d63384; }
+        .done-row { background-color: #f2f2f2 !important; color: #aaa; text-decoration: line-through; }
         .highlight-row { background-color: #fff9c4; font-weight: bold; }
         
-        /* 按鈕區 */
+        /* 調整按鈕 */
+        .edit-btns { display: flex; gap: 4px; justify-content: center; }
+        .btn-edit { border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; }
+        .btn-add { background: #e3f2fd; color: #1976d2; }
+        .btn-del { background: #ffebee; color: #c62828; }
+
         .action-btns { display: flex; gap: 10px; margin-top: 15px; width: 100%; }
         .btn-action { flex: 1; padding: 12px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
         .btn-copy-img { background: #28a745; color: white; }
@@ -46,8 +46,8 @@
 <body>
 
 <div class="container">
-    <h2>🧶 鉤針織圖參考生成器</h2>
-    <p class="author">實測優化 v3.2 | 減針邏輯精準修正</p>
+    <h2>🧶 鉤針織圖全能生成器</h2>
+    <p class="author">全功能大整合 v3.5 | 支援形狀選擇與自由增減</p>
 
     <div class="legend-card">
         <div class="legend-grid">
@@ -88,20 +88,25 @@
             <label for="keepOpen" style="color:#d63384;"><b>需要縫合此部位</b> (自動加排/保留開口)</label>
         </div>
         <div id="stopGroup" class="row" style="display:none;">
-            <label>停止於幾針(預估縫合開口的針數,生成時會自動修正):</label>
+            <label>停止於幾針:</label>
             <input type="number" id="stopStitches" value="12">
         </div>
-        <button class="btn-generate" onclick="generate()">生成優化織圖</button>
-    </div>
-
-    <div class="ai-guide">
-        <h3 style="margin-top:0; font-size:15px;">🤖 AI 諮詢小幫手(可先在你自己的AI上傳草圖並分析)</h3>
-        <div class="prompt-box" id="pBox">請分析設計圖。告訴我每個部位是【球體/長橢圓/水滴狀】，並估計其【最大直徑(cm)】與【總長度(cm)】。</div>
-        <button class="copy-btn" onclick="copyP()">一鍵複製 Prompt</button>
+        <button class="btn-generate" onclick="generate()">生成織圖</button>
     </div>
 
     <div id="capture-area">
-        <div id="result-table"></div>
+        <table id="pattern-table" style="display:none;">
+            <thead>
+                <tr>
+                    <th width="30">完</th>
+                    <th width="40">圈</th>
+                    <th>針法邏輯</th>
+                    <th width="50">總針</th>
+                    <th width="90">調整</th>
+                </tr>
+            </thead>
+            <tbody id="pattern-body"></tbody>
+        </table>
     </div>
     
     <div id="action-btns-area" class="action-btns" style="display:none;">
@@ -110,9 +115,51 @@
 </div>
 
 <script>
-function copyP() {
-    navigator.clipboard.writeText(document.getElementById('pBox').innerText);
-    alert('已複製 Prompt！');
+function renumberRounds() {
+    const rows = document.querySelectorAll('#pattern-body tr');
+    rows.forEach((row, index) => { row.cells[1].innerText = index + 1; });
+}
+
+function toggleRow(checkbox) {
+    checkbox.closest('tr').classList.toggle('done-row', checkbox.checked);
+}
+
+function addRowAfter(btn) {
+    const currentRow = btn.closest('tr');
+    const currentSt = currentRow.cells[3].innerText;
+    const newRow = document.createElement('tr');
+    newRow.innerHTML = `
+        <td><input type="checkbox" onchange="toggleRow(this)"></td>
+        <td></td>
+        <td>${currentSt}X <small>(自訂追加)</small></td>
+        <td>${currentSt}</td>
+        <td class="edit-btns">
+            <button class="btn-edit btn-add" onclick="addRowAfter(this)">➕</button>
+            <button class="btn-edit btn-del" onclick="delRow(this)">❌</button>
+        </td>`;
+    currentRow.parentNode.insertBefore(newRow, currentRow.nextSibling);
+    renumberRounds();
+}
+
+function delRow(btn) {
+    if(confirm('確定要刪除這一圈嗎？')) {
+        btn.closest('tr').remove();
+        renumberRounds();
+    }
+}
+
+function createRowHTML(logic, st, isExtra = false) {
+    return `
+        <tr class="${isExtra ? 'highlight-row' : ''}">
+            <td><input type="checkbox" onchange="toggleRow(this)"></td>
+            <td></td>
+            <td>${logic}</td>
+            <td>${st}</td>
+            <td class="edit-btns">
+                <button class="btn-edit btn-add" onclick="addRowAfter(this)">➕</button>
+                <button class="btn-edit btn-del" onclick="delRow(this)">❌</button>
+            </td>
+        </tr>`;
 }
 
 function generate() {
@@ -124,17 +171,17 @@ function generate() {
     const stopSt = parseInt(document.getElementById('stopStitches').value);
     
     if (isNaN(D) || D <= 0) return;
-
     const targetRounds = Math.round(D); 
     const maxSt = targetRounds * base;
-    let html = `<table><tr><th>圈數</th><th>針法邏輯</th><th>總針數</th></tr>`;
-    let curr = 1;
+    const tbody = document.getElementById('pattern-body');
+    tbody.innerHTML = '';
+    let rowsHTML = [];
 
-    // 1. 加針區
-    html += `<tr><td>1</td><td>MR (${base}X)</td><td>${base}</td></tr>`;
+    // 1. 加針
+    rowsHTML.push(createRowHTML(`MR (${base}X)`, base));
     for (let i = 2; i <= targetRounds; i++) {
         let logic = (i === 2) ? `${base}V` : `(${i-2}X, V) * ${base}`;
-        html += `<tr><td>${++curr}</td><td>${logic}</td><td>${i * base}</td></tr>`;
+        rowsHTML.push(createRowHTML(logic, i * base));
     }
 
     // 2. 固定層
@@ -144,45 +191,41 @@ function generate() {
 
     for(let i=0; i<midRounds; i++) {
         let isExtra = (keepOpen && i >= (midRounds - 2));
-        html += `<tr class="${isExtra ? 'highlight-row' : ''}">
-            <td>${++curr}</td>
-            <td>${maxSt}X ${isExtra ? '<br><small>(縫合加強排，視實際狀況增減)</small>' : ''}</td>
-            <td>${maxSt}</td>
-        </tr>`;
+        let logic = maxSt + "X";
+        if (isExtra) logic += `<br><small>(縫合加強排)</small>`;
+        rowsHTML.push(createRowHTML(logic, maxSt, isExtra));
     }
 
-    // 3. 減針區 (修正預判邏輯)
+    // 3. 減針
     if (shape === 'normal') {
         for (let i = targetRounds; i >= 2; i--) {
             let nextSt = (i - 1) * base;
-
-            // 如果下一圈會小於停止針數，就在這圈停止
             if (keepOpen && nextSt < stopSt) break;
-
             let logic = (i === 2) ? `${base}A` : `(${i-2}X, A) * ${base}`;
-            html += `<tr><td>${++curr}</td><td>${logic}</td><td>${nextSt}</td></tr>`;
-            
+            rowsHTML.push(createRowHTML(logic, nextSt));
             if (keepOpen && nextSt === stopSt) break;
         }
     } else {
         let curS = maxSt;
+        let scount = rowsHTML.length;
         while (curS > base) {
-            // 水滴狀預判
             if (keepOpen && (curS - base) < stopSt) break;
-
-            if (curr % 2 === 0) {
+            if (scount % 2 === 0) {
                 let k = curS / base;
-                html += `<tr><td>${++curr}</td><td>(${k-2}X, A) * ${base}</td><td>${curS - base}</td></tr>`;
+                rowsHTML.push(createRowHTML(`(${k-2}X, A) * ${base}`, curS - base));
                 curS -= base;
             } else {
-                html += `<tr><td>${++curr}</td><td>${curS}X</td><td>${curS}</td></tr>`;
+                rowsHTML.push(createRowHTML(curS + "X", curS));
             }
+            scount++;
             if (keepOpen && curS === stopSt) break;
         }
     }
 
-    document.getElementById('result-table').innerHTML = html + `</table>`;
+    tbody.innerHTML = rowsHTML.join('');
+    document.getElementById('pattern-table').style.display = 'table';
     document.getElementById('action-btns-area').style.display = 'flex';
+    renumberRounds();
 }
 
 async function copyTableAsImage() {
@@ -191,7 +234,7 @@ async function copyTableAsImage() {
     canvas.toBlob(blob => {
         const item = new ClipboardItem({ "image/png": blob });
         navigator.clipboard.write([item]);
-        alert('織圖圖片已成功複製到剪貼簿！');
+        alert('帶有增減設定的織圖已複製！');
     });
 }
 </script>
